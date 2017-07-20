@@ -29,6 +29,7 @@ import java.util.List;
 public class QueryActivity extends AppCompatActivity {
 
     private ListView listView;
+    final ArrayList<String> msg_id_Array = new ArrayList<String>() ;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,12 +43,10 @@ public class QueryActivity extends AppCompatActivity {
             @Override
             public void onItemClick(AdapterView arg0, View arg1, int arg2, long arg3) {
                 ListView listView = (ListView) arg0;
-                Toast.makeText(
-                        QueryActivity.this,
-                        "ID：" + arg3 +
-                                "   選單文字："+ listView.getItemAtPosition(arg2).toString(),
-                        Toast.LENGTH_SHORT).show();
+                String msg_id = msg_id_Array.get(arg2);
 
+                new TheDeleteTask().execute(msg_id);
+               /*Toast.makeText(QueryActivity.this,  "ID：" + arg3 + "   選單文字："+ listView.getItemAtPosition(arg2).toString(),Toast.LENGTH_SHORT).show();*/
             }
         });
 
@@ -55,7 +54,7 @@ public class QueryActivity extends AppCompatActivity {
 
         //listView.setAdapter(adapter);
 
-        new TheTask().execute("123456789");
+        new TheQueryTask().execute("123456789");
 
     }
 
@@ -64,7 +63,7 @@ public class QueryActivity extends AppCompatActivity {
 
     }
 
-    class TheTask extends AsyncTask<String,Void,String>
+    class TheQueryTask extends AsyncTask<String,Void,String>
     {
         @Override
         protected void onPreExecute() {
@@ -126,13 +125,14 @@ public class QueryActivity extends AppCompatActivity {
 
                         String msg = jsonObject.getString("msg").toString();
                         String created_date = jsonObject.getString("created_date").toString();
+                        String msg_id = jsonObject.getString("msg_id").toString();
                         hashMap.put("msg" , msg);
                         hashMap.put("created_date" , created_date);
 
                         stringArray.add(msg);
                         list.add(hashMap);
 
-
+                        msg_id_Array.add(msg_id);
                         Log.d("result=", msg);
 
                     } catch (JSONException e) {
@@ -167,4 +167,92 @@ public class QueryActivity extends AppCompatActivity {
         }
     }
 
+
+
+    //Delete程式碼
+    class TheDeleteTask extends AsyncTask<String,Void,String>
+    {
+        @Override
+        protected void onPreExecute() {
+            listView.setAdapter(null);
+        }
+
+        @Override
+        protected String doInBackground(String... arg0) {
+
+            String msg_id = arg0[0];
+
+            String link;
+            String data;
+            BufferedReader bufferedReader;
+            String result;
+
+            try {
+
+                data = "?msg_id=" + URLEncoder.encode(msg_id, "UTF-8");
+
+                link = "http://140.130.33.153/DeleteMessage.php" + data;
+
+                URL url = new URL(link);
+
+                HttpURLConnection con = (HttpURLConnection) url.openConnection();
+
+                bufferedReader = new BufferedReader(new InputStreamReader(con.getInputStream()));
+
+                result = bufferedReader.readLine();
+
+                return result;
+
+            } catch (Exception e) {
+
+                return new String("Exception: " + e.getMessage());
+            }
+
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+
+            String jsonStr = result;
+
+            Log.d("result=",result);
+
+            if (jsonStr != null) {
+
+                try {
+
+                    JSONObject jsonObj = new JSONObject(jsonStr);
+
+                    String query_result = jsonObj.getString("query_result");
+                    if (query_result.equals("SUCCESS")) {
+
+                        Toast.makeText(QueryActivity.this, "紀錄刪除成功" , Toast.LENGTH_SHORT).show();
+                        new TheQueryTask().execute("123456789");
+
+                    } else if (query_result.equals("FAILURE")) {
+
+                        Toast.makeText(QueryActivity.this, "紀錄刪除失敗", Toast.LENGTH_SHORT).show();
+
+                    } else {
+
+                        Toast.makeText(QueryActivity.this, "無法連接伺服器", Toast.LENGTH_SHORT).show();
+
+                    }
+
+                } catch (JSONException e) {
+
+                    e.printStackTrace();
+
+                    Toast.makeText(QueryActivity.this, "Error parsing JSON data.", Toast.LENGTH_SHORT).show();
+
+                }
+
+            } else {
+
+                Toast.makeText(QueryActivity.this, "Couldn't get any JSON data.", Toast.LENGTH_SHORT).show();
+
+            }
+
+        }
+    }
 }
